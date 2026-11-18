@@ -101,11 +101,11 @@
     Subscribe to Test Calendar
   </a>
 
-  <a class="button button-secondary" href="https://malchia7.github.io/alert-ready-blocker/AlertBlocker.shortcut">
+  <a class="button button-secondary" href="shortcuts://import-shortcut?url=https%3A%2F%2Fmalchia7.github.io%2Falert-ready-blocker%2FAlertBlocker.shortcut&name=Create%20Alert%20Blocker%20Alarms">
     Install "Create Alert Blocker Alarms"
   </a>
 
-  <a class="button button-secondary" href="https://malchia7.github.io/alert-ready-blocker/AlertBlockerTrigger.shortcut">
+  <a class="button button-secondary" href="shortcuts://import-shortcut?url=https%3A%2F%2Fmalchia7.github.io%2Falert-ready-blocker%2FAlertBlockerTrigger.shortcut&name=Alert%20Blocker%20Alarm%20Trigger">
     Install "Alert Blocker Alarm Trigger"
   </a>
 
@@ -118,32 +118,15 @@
         <code>Hourly</code> (or <code>Automatically</code>/Push, if offered).
       </li>
       <li>
-        Install both Shortcuts above. <strong>Create Alert Blocker
-        Alarms</strong> runs <code>Find Calendar Events</code> where
-        <code>Title is "Alert Ready Test"</code> and
-        <code>Start Date is Today</code>; if found, it creates two silent
-        alarms from the event's real <code>Start Date</code> and
-        <code>End Date</code>, named <code>AlertBlockerOn</code> and
-        <code>AlertBlockerOff</code>. <strong>Alert Blocker Alarm
-        Trigger</strong> runs <code>Find Alarms</code> for an alarm named
-        <code>AlertBlockerOn</code> or <code>AlertBlockerOff</code> that is
-        <code>Not Is Enabled</code> (iOS auto-disables an alarm once it
-        fires, which is how this tells which one just went off), then sets
-        Airplane Mode on or off to match. Alarms are OS-level, so this
-        sidesteps iOS's limits on how long a background Shortcut can run
-        &mdash; the Shortcut only has to do its work the instant the alarm
-        fires.
+        Tap both buttons above to install the two Shortcuts.
       </li>
       <li>
-        In the Shortcuts app, create <strong>two</strong> Personal
-        Automations, both set to <code>Run Immediately</code> (no
-        confirmation):
-        <br>&bull; A <code>Time of Day</code> trigger at
-        <strong>8:00 AM</strong>, daily, running
-        <strong>Create Alert Blocker Alarms</strong>. It no-ops on days with
-        no test, so it's safe to leave running daily.
-        <br>&bull; An <code>Alarm</code> trigger (fires whenever any alarm
-        goes off), running <strong>Alert Blocker Alarm Trigger</strong>.
+        In the Shortcuts app, create two Personal Automations, both set to
+        <code>Run Immediately</code> (no confirmation):
+        <br>&bull; <code>Time of Day</code>, <strong>8:00 AM</strong> daily
+        &rarr; run <strong>Create Alert Blocker Alarms</strong>.
+        <br>&bull; <code>Alarm</code> &rarr; run
+        <strong>Alert Blocker Alarm Trigger</strong>.
       </li>
     </ol>
   </div>
