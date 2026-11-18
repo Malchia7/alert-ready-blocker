@@ -114,19 +114,29 @@
         <code>Hourly</code> (or <code>Automatically</code>/Push, if offered).
       </li>
       <li>
-        Build (or install, once the button above has your shortcut link) a
+        Build (or install, once the button above has your shortcut link) one
         Shortcut that runs <code>Find Calendar Events</code> where
         <code>Title is "Alert Ready Test"</code> and
-        <code>Start Date is Today</code>, then toggles Airplane Mode based on
-        whether an event was found.
+        <code>Start Date is Today</code> (limit 1), stops if nothing is
+        found, and otherwise converts the found event's
+        <code>Start Date</code> and <code>End Date</code> to
+        <code>Unix Time</code>, <code>Wait</code>s until Start, turns
+        Airplane Mode <strong>On</strong>, <code>Wait</code>s until End, then
+        turns it <strong>Off</strong>. Shortcuts can't trigger directly off a
+        calendar event's own time, so the Shortcut does the real waiting
+        itself &mdash; the on/off timing always tracks whatever time the
+        scraper actually found, never a fixed clock time.
       </li>
       <li>
-        In the Shortcuts app, create two Personal Automations, each set to
-        <code>Run Immediately</code> on <strong>every Wednesday</strong>:
-        one at <strong>1:50 PM</strong> that turns Airplane Mode
-        <strong>On</strong> if the event exists, and one at
-        <strong>2:05 PM</strong> that turns it <strong>Off</strong> if the
-        event exists.
+        In the Shortcuts app, create <strong>one</strong> Personal Automation
+        with a <code>Time of Day</code> trigger set safely before any
+        historical test window (e.g. <strong>1:00 PM</strong>), repeating
+        weekly, set to <code>Run Immediately</code> (no confirmation). Its
+        only job is to kick off the Shortcut above, which no-ops on days
+        with no event. iOS limits how long a background automation can run,
+        so if Airplane Mode doesn't flip automatically, open the Shortcut
+        from the Shortcuts app and tap it by hand &mdash; it checks the clock
+        itself and still does the right thing.
       </li>
     </ol>
   </div>
