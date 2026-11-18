@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scrapes for the next B.C. Alert Ready test date/time and (re)writes
+"""Checks for the next B.C. Alert Ready test date/time and (re)writes
 bc-alert-test.ics with a 15-minute buffer window around it.
 
 Sources are checked in priority order, each wrapped independently so a

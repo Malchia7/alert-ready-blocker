@@ -2,7 +2,7 @@ name: Update BC Alert Ready test calendar
 
 on:
   schedule:
-    - cron: '0 14 * 5,11 *'
+    - cron: '0 14 * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -23,8 +23,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run scraper
-        run: python scraper.py
+      - name: Check for upcoming tests
+        run: python check_for_upcoming_tests.py
 
       - name: Commit and push if changed
         run: |
