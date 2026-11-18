@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BC Alert Ready Blocker</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0d1117;
+    --card: #161b22;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #2f81f7;
+    --accent2: #3fb950;
+    --border: #30363d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 64px;
+  }
+  main {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+  }
+  p.subtitle {
+    color: var(--muted);
+    margin-top: 0;
+    margin-bottom: 28px;
+    font-size: 0.95rem;
+  }
+  a.button {
+    display: block;
+    text-align: center;
+    padding: 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    text-decoration: none;
+    margin-bottom: 16px;
+    transition: opacity 0.15s ease;
+  }
+  a.button:active { opacity: 0.75; }
+  .button-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .button-secondary {
+    background: var(--accent2);
+    color: #052e16;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 28px;
+  }
+  .card h2 {
+    margin-top: 0;
+    font-size: 1.05rem;
+  }
+  ol {
+    padding-left: 20px;
+    margin: 0;
+  }
+  li {
+    margin-bottom: 14px;
+    line-height: 1.45;
+    font-size: 0.95rem;
+  }
+  li:last-child { margin-bottom: 0; }
+  code {
+    background: rgba(110,118,129,0.25);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 32px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>BC Alert Ready Blocker</h1>
+  <p class="subtitle">Subscribe once, then never hear a test alert again.</p>
+
+  <a class="button button-primary" href="webcal://emilydespas.github.io/alert-ready-blocker/bc-alert-test.ics">
+    Subscribe to Test Calendar
+  </a>
+
+  <a class="button button-secondary" href="#YOUR_ICLOUD_SHORTCUT_URL">
+    Install Airplane Mode Shortcut
+  </a>
+
+  <div class="card">
+    <h2>Finish setup on your iPhone</h2>
+    <ol>
+      <li>
+        Go to <code>Settings &gt; Calendar &gt; Accounts</code>, tap the new
+        subscribed calendar's account, and set <code>Fetch New Data</code> to
+        <code>Hourly</code> (or <code>Automatically</code>/Push, if offered).
+      </li>
+      <li>
+        Build (or install, once the button above has your shortcut link) a
+        Shortcut that runs <code>Find Calendar Events</code> where
+        <code>Title is "Alert Ready Test"</code> and
+        <code>Start Date is Today</code>, then toggles Airplane Mode based on
+        whether an event was found.
+      </li>
+      <li>
+        In the Shortcuts app, create two Personal Automations, each set to
+        <code>Run Immediately</code> on <strong>every Wednesday</strong>:
+        one at <strong>1:50 PM</strong> that turns Airplane Mode
+        <strong>On</strong> if the event exists, and one at
+        <strong>2:05 PM</strong> that turns it <strong>Off</strong> if the
+        event exists.
+      </li>
+    </ol>
+  </div>
+
+  <footer>bc-alert-test.ics is refreshed automatically every May &amp; November.</footer>
+</main>
+</body>
+</html>
