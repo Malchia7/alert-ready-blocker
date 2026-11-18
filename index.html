@@ -101,8 +101,12 @@
     Subscribe to Test Calendar
   </a>
 
-  <a class="button button-secondary" href="#YOUR_ICLOUD_SHORTCUT_URL">
-    Install Airplane Mode Shortcut
+  <a class="button button-secondary" href="https://www.icloud.com/shortcuts/26771a7562784e458da77e3ef87a9b76">
+    Install "Create Alert Blocker Alarms"
+  </a>
+
+  <a class="button button-secondary" href="https://www.icloud.com/shortcuts/cddba37ed38d44fdb833797a150a9a17">
+    Install "Alert Blocker Alarm Trigger"
   </a>
 
   <div class="card">
@@ -114,29 +118,32 @@
         <code>Hourly</code> (or <code>Automatically</code>/Push, if offered).
       </li>
       <li>
-        Build (or install, once the button above has your shortcut link) one
-        Shortcut that runs <code>Find Calendar Events</code> where
+        Install both Shortcuts above. <strong>Create Alert Blocker
+        Alarms</strong> runs <code>Find Calendar Events</code> where
         <code>Title is "Alert Ready Test"</code> and
-        <code>Start Date is Today</code> (limit 1), stops if nothing is
-        found, and otherwise converts the found event's
-        <code>Start Date</code> and <code>End Date</code> to
-        <code>Unix Time</code>, <code>Wait</code>s until Start, turns
-        Airplane Mode <strong>On</strong>, <code>Wait</code>s until End, then
-        turns it <strong>Off</strong>. Shortcuts can't trigger directly off a
-        calendar event's own time, so the Shortcut does the real waiting
-        itself &mdash; the on/off timing always tracks whatever time the
-        scraper actually found, never a fixed clock time.
+        <code>Start Date is Today</code>; if found, it creates two silent
+        alarms from the event's real <code>Start Date</code> and
+        <code>End Date</code>, named <code>AlertBlockerOn</code> and
+        <code>AlertBlockerOff</code>. <strong>Alert Blocker Alarm
+        Trigger</strong> runs <code>Find Alarms</code> for an alarm named
+        <code>AlertBlockerOn</code> or <code>AlertBlockerOff</code> that is
+        <code>Not Is Enabled</code> (iOS auto-disables an alarm once it
+        fires, which is how this tells which one just went off), then sets
+        Airplane Mode on or off to match. Alarms are OS-level, so this
+        sidesteps iOS's limits on how long a background Shortcut can run
+        &mdash; the Shortcut only has to do its work the instant the alarm
+        fires.
       </li>
       <li>
-        In the Shortcuts app, create <strong>one</strong> Personal Automation
-        with a <code>Time of Day</code> trigger set safely before any
-        historical test window (e.g. <strong>1:00 PM</strong>), repeating
-        weekly, set to <code>Run Immediately</code> (no confirmation). Its
-        only job is to kick off the Shortcut above, which no-ops on days
-        with no event. iOS limits how long a background automation can run,
-        so if Airplane Mode doesn't flip automatically, open the Shortcut
-        from the Shortcuts app and tap it by hand &mdash; it checks the clock
-        itself and still does the right thing.
+        In the Shortcuts app, create <strong>two</strong> Personal
+        Automations, both set to <code>Run Immediately</code> (no
+        confirmation):
+        <br>&bull; A <code>Time of Day</code> trigger at
+        <strong>8:00 AM</strong>, daily, running
+        <strong>Create Alert Blocker Alarms</strong>. It no-ops on days with
+        no test, so it's safe to leave running daily.
+        <br>&bull; An <code>Alarm</code> trigger (fires whenever any alarm
+        goes off), running <strong>Alert Blocker Alarm Trigger</strong>.
       </li>
     </ol>
   </div>
