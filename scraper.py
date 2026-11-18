@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 VANCOUVER = ZoneInfo("America/Vancouver")
 ICS_PATH = "bc-alert-test.ics"
-UID = "bc-alert-ready-test@alert-ready-blocker.github.io"
+UID = "bc-alert-ready-test@malchia7.github.io"
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; AlertReadyBlocker/1.0)"}
 
