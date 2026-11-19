@@ -1,19 +1,24 @@
 # Alert Ready Blocker
 
-Publishes a `.ics` calendar feed of upcoming B.C. Alert Ready test windows, and
-provides two iOS Shortcuts that use it to automatically flip Airplane Mode on
-and off around the real test time.
+Publishes a `.ics` calendar feed of upcoming Alert Ready test windows for
+every Canadian province and territory, and provides two iOS Shortcuts that
+use it to automatically flip Airplane Mode on and off around the real test
+time.
 
 Site: https://malchia7.github.io/alert-ready-blocker/
 
 ## How it fits together
 
 1. `check_for_upcoming_tests.py` runs daily via GitHub Actions and writes
-   `bc-alert-test.ics` to the repo root.
-2. GitHub Pages serves `index.html` and `bc-alert-test.ics` directly from
+   one `<abbr>-alert-test.ics` per province/territory to the repo root
+   (e.g. `bc-alert-test.ics`, `ab-alert-test.ics`).
+2. GitHub Pages serves `index.html` and all the `.ics` files directly from
    `main`.
-3. You subscribe to the feed in Apple Calendar (`webcal://...`) and install
-   two Shortcuts (with their automations built in) from `index.html`.
+3. You pick your province on `index.html`, subscribe to its feed in Apple
+   Calendar (`webcal://...`), and install two Shortcuts (with their
+   automations built in) — the same two Shortcuts work regardless of which
+   province's calendar you subscribed to, since they just look for an
+   `Alert Ready Test` event by title, not by province.
 4. Daily at 8 AM, one automation checks if today has an `Alert Ready Test`
    event and, if so, creates two silent alarms — `AlertBlockerOn` at the
    event's start and `AlertBlockerOff` at its end. The other automation
@@ -22,27 +27,52 @@ Site: https://malchia7.github.io/alert-ready-blocker/
 
 ## Why it's built this way
 
+**Sources are fetched once, then matched per province.** Each RSS item and
+the schedule page embed a province/time table (`{province: time}`), so
+`check_for_upcoming_tests.py` fetches each source exactly once, extracts
+every row into that table, and then matches each of the 13
+provinces/territories against it — rather than re-fetching per province.
+gov.bc.ca remains a B.C.-only secondary source, since no equivalent
+government page exists generically across provinces.
+
+**Province labels are normalized before matching**, because sources don't
+agree on punctuation — e.g. the HTML schedule page writes
+"Newfoundland &amp; Labrador" while the RSS feed writes "Newfoundland and
+Labrador". `normalize_label()` collapses both to the same string so the
+match isn't silently missed.
+
+**Local time is converted to UTC via `zoneinfo`/`tzdata`, not a hand-written
+`VTIMEZONE` block per province.** DST and permanent-offset rules change by
+legislation — while building this, Alberta, Manitoba, and the Northwest
+Territories all turned out to be moving to a permanent UTC offset in
+November 2026, which a hand-rolled set of RRULEs would have gotten wrong.
+`tzdata` is pinned as an explicit dependency (rather than relying on
+whatever the host OS ships) so this stays correct and consistent between
+local runs and the GitHub Actions runner.
+
 **Sources checked in priority order, each with independent fallback.**
-`check_for_upcoming_tests.py` tries alertready.ca's RSS feed first (polled by
-readers, least likely to trip bot filters), then gov.bc.ca (often updated
-2–3 weeks earlier), then the alertready.ca schedule page as a last resort.
-Each fetch is wrapped separately so a 403/timeout/parse miss on one source
-logs a warning and falls through to the next instead of failing the run.
+alertready.ca's RSS feed is tried first (polled by readers, least likely to
+trip bot filters), then gov.bc.ca (B.C. only; often updated 2–3 weeks
+earlier), then the alertready.ca schedule page as a last resort. Each fetch
+is wrapped separately so a 403/timeout/parse miss on one source logs a
+warning and falls through to the next instead of failing the run.
 
-**Future-only, with a preserve-don't-clobber fallback.** Only dates `>=` now
-are considered a match. If no source lists a future BC date, the script
-leaves the existing `bc-alert-test.ics` untouched (or writes an empty
-`VCALENDAR` shell if no file exists yet) — so the `webcal://` subscription
-never 404s, and a day with nothing new to report doesn't wipe out a
-previously-found date.
+**Future-only, with a preserve-don't-clobber fallback, per province.** Only
+dates `>=` now are considered a match. If no source lists a future date for
+a given province, that province's existing `.ics` is left untouched (or an
+empty `VCALENDAR` shell is written if the file doesn't exist yet) — so no
+`webcal://` subscription ever 404s, and a day with nothing new to report
+doesn't wipe out a previously-found date for any other province.
 
-**-5/+10 minute buffer window.** The calendar event spans 5 minutes before
+**-5/+10 minute buffer window.** Each calendar event spans 5 minutes before
 the test to 10 minutes after it, verified to bracket the actual alert time
 in both normal cases and day-boundary edge cases (e.g. a test at 11:58 PM).
 
-**A fixed BC time default (1:55 PM) only when a date is confirmed but no
-BC-specific time is listed.** Keeps the event from silently disappearing if
-a source publishes the date before the time.
+**A fixed default time (1:55 PM) only applies to the gov.bc.ca source**,
+used when a B.C. date is confirmed but the sentence doesn't list a specific
+time. It's B.C.-only because that's the only source without a per-row time
+table; the RSS feed and schedule page always carry an explicit time for
+every province.
 
 **Daily, year-round GitHub Action, not just May/November.** The check is a
 no-op on days with nothing new, so there's no cost to running it daily all

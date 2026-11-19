@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BC Alert Ready Blocker</title>
+<title>Alert Ready Blocker</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -84,15 +84,44 @@
     border-radius: 4px;
     font-size: 0.85em;
   }
-
+  select#province {
+    display: block;
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 1.05rem;
+    font-weight: 600;
+    -webkit-appearance: none;
+    appearance: none;
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>BC Alert Ready Blocker</h1>
+  <h1>Alert Ready Blocker</h1>
   <p class="subtitle">Subscribe once, then never hear a test alert again.</p>
 
-  <a class="button button-primary" href="webcal://malchia7.github.io/alert-ready-blocker/bc-alert-test.ics">
+  <select id="province">
+    <option value="ab">Alberta</option>
+    <option value="bc" selected>British Columbia</option>
+    <option value="mb">Manitoba</option>
+    <option value="nb">New Brunswick</option>
+    <option value="nl">Newfoundland and Labrador</option>
+    <option value="nt">Northwest Territories</option>
+    <option value="ns">Nova Scotia</option>
+    <option value="nu">Nunavut</option>
+    <option value="on">Ontario</option>
+    <option value="pe">Prince Edward Island</option>
+    <option value="qc">Quebec</option>
+    <option value="sk">Saskatchewan</option>
+    <option value="yt">Yukon</option>
+  </select>
+
+  <a class="button button-primary" id="subscribe-btn" href="webcal://malchia7.github.io/alert-ready-blocker/bc-alert-test.ics">
     Subscribe to Test Calendar
   </a>
 
@@ -113,5 +142,11 @@
     </ol>
   </div>
 </main>
+<script>
+  document.getElementById("province").addEventListener("change", function () {
+    document.getElementById("subscribe-btn").href =
+      "webcal://malchia7.github.io/alert-ready-blocker/" + this.value + "-alert-test.ics";
+  });
+</script>
 </body>
 </html>

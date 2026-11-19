@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
-"""Checks for the next B.C. Alert Ready test date/time and (re)writes
-bc-alert-test.ics with a 15-minute buffer window around it.
+"""Checks for the next Alert Ready test date/time for each Canadian
+province/territory and (re)writes one <abbr>-alert-test.ics per region with
+a 15-minute buffer window around it.
 
 Sources are checked in priority order, each wrapped independently so a
 failure (403, timeout, parse miss) on one falls through to the next instead
 of crashing the run:
 
   1. alertready.ca RSS feed      - polled by readers, least likely to be
-                                    blocked; carries the latest announcement.
-  2. gov.bc.ca test page         - often updated 2-3 weeks before the RSS
-                                    picks it up.
+                                    blocked; carries the latest announcement
+                                    and a province/time table per item.
+  2. gov.bc.ca test page         - B.C.-only; often updated 2-3 weeks before
+                                    the RSS picks it up.
   3. alertready.ca schedule page - static HTML table, last resort.
+
+Each region's local test time is converted to UTC via zoneinfo (backed by
+the `tzdata` package) rather than a hand-written VTIMEZONE block, since
+DST/permanent-offset rules change by legislation (e.g. Alberta, Manitoba,
+and the Northwest Territories moved to a permanent UTC offset in Nov 2026)
+and a maintained IANA database tracks that automatically.
 """
 import re
 import sys
@@ -21,10 +29,25 @@ from zoneinfo import ZoneInfo
 import requests
 from bs4 import BeautifulSoup
 
-VANCOUVER = ZoneInfo("America/Vancouver")
-ICS_PATH = "bc-alert-test.ics"
-UID = "bc-alert-ready-test@malchia7.github.io"
-DEFAULT_BC_TIME = (13, 55)  # 1:55 p.m., used when a date is confirmed but no BC-specific time is listed
+UTC = ZoneInfo("UTC")
+
+PROVINCES = [
+    {"abbr": "ab", "label": "Alberta", "tz": "America/Edmonton"},
+    {"abbr": "bc", "label": "British Columbia", "tz": "America/Vancouver"},
+    {"abbr": "mb", "label": "Manitoba", "tz": "America/Winnipeg"},
+    {"abbr": "nb", "label": "New Brunswick", "tz": "America/Moncton"},
+    {"abbr": "nl", "label": "Newfoundland and Labrador", "tz": "America/St_Johns"},
+    {"abbr": "nt", "label": "Northwest Territories", "tz": "America/Yellowknife"},
+    {"abbr": "ns", "label": "Nova Scotia", "tz": "America/Halifax"},
+    {"abbr": "nu", "label": "Nunavut", "tz": "America/Iqaluit"},
+    {"abbr": "on", "label": "Ontario", "tz": "America/Toronto"},
+    {"abbr": "pe", "label": "Prince Edward Island", "tz": "America/Halifax"},
+    {"abbr": "qc", "label": "Quebec", "tz": "America/Toronto"},
+    {"abbr": "sk", "label": "Saskatchewan", "tz": "America/Regina"},
+    {"abbr": "yt", "label": "Yukon", "tz": "America/Whitehorse"},
+]
+
+DEFAULT_BC_TIME = (13, 55)  # used only for the gov.bc.ca sentence source, which doesn't always list a time
 
 RSS_URL = "https://alertready.ca/feed/"
 GOVBC_URL = "https://www2.gov.bc.ca/gov/content/safety/public-safety/emergency-alerts/alert-test"
@@ -54,8 +77,17 @@ def fetch(url):
     return resp.text
 
 
+def normalize_label(text):
+    """Collapses label text so 'Newfoundland & Labrador' and 'Newfoundland
+    and Labrador' (and similar punctuation variance between sources) match.
+    """
+    text = text.replace("&", " and ")
+    text = re.sub(r"[^a-z0-9]+", " ", text.lower())
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def parse_time(time_text):
-    """'1:55 PM PCT' / '1:55pm' -> (hour, minute) in 24h, local to the zone."""
+    """'1:55 PM PCT' / '1:55pm' -> (hour, minute) in 24h, local to the region."""
     m = re.search(r"(\d{1,2}):(\d{2})\s*([AP]M)", time_text, re.I)
     if not m:
         return None
@@ -82,28 +114,32 @@ def find_date(text):
     return int(m.group(3)), month, int(m.group(2))
 
 
-def find_bc_time_in_table(html_fragment):
-    """Finds the British Columbia row's time in an HTML table fragment."""
+def extract_table_times(html_fragment):
+    """Returns {normalized_label: (hour, minute)} for every row of a
+    province/time table (works for both the 2-cell RSS table and the
+    3-cell schedule-page table, since the time is always the last cell).
+    """
     soup = BeautifulSoup(html_fragment, "html.parser")
+    times = {}
     for row in soup.find_all("tr"):
         cells = row.find_all("td")
         if len(cells) < 2:
             continue
-        label = cells[0].get_text(strip=True)
-        if "british columbia" not in label.lower():
-            continue
-        time_text = cells[-1].get_text(strip=True)
-        return parse_time(time_text)
-    return None
+        label = normalize_label(cells[0].get_text(strip=True))
+        time_parts = parse_time(cells[-1].get_text(strip=True))
+        if label and time_parts:
+            times[label] = time_parts
+    return times
 
 
-def datetime_from_parts(year, month, day, time_parts):
-    hour, minute = time_parts if time_parts else DEFAULT_BC_TIME
-    return datetime(year, month, day, hour, minute, tzinfo=VANCOUVER)
+def to_utc(year, month, day, time_parts, tz_name):
+    hour, minute = time_parts
+    local = datetime(year, month, day, hour, minute, tzinfo=ZoneInfo(tz_name))
+    return local.astimezone(UTC)
 
 
 def parse_rss_feed(xml_text):
-    """Checks the latest 5 RSS items for an upcoming BC test date/time."""
+    """Yields (date_parts, {normalized_label: (h, m)}) for the latest 5 items."""
     root = ET.fromstring(xml_text)
     items = root.findall("./channel/item")[:5]
 
@@ -116,13 +152,16 @@ def parse_rss_feed(xml_text):
         if not date_parts:
             continue
 
-        time_parts = find_bc_time_in_table(content) or find_bc_time_in_table(description)
-        year, month, day = date_parts
-        yield datetime_from_parts(year, month, day, time_parts)
+        times = extract_table_times(content) or extract_table_times(description)
+        if times:
+            yield date_parts, times
 
 
-def parse_govbc(html):
-    """Finds 'next test is scheduled for <Month Day, Year> at <time>'."""
+def parse_govbc():
+    """Finds 'next test is scheduled for <Month Day, Year> at <time>'.
+    B.C.-only secondary source; returns (date_parts, times) or None.
+    """
+    html = fetch(GOVBC_URL)
     soup = BeautifulSoup(html, "html.parser")
     text = soup.get_text(" ", strip=True)
     m = re.search(
@@ -136,113 +175,104 @@ def parse_govbc(html):
     month = MONTHS.get(month_name.lower())
     if not month:
         return None
-    time_parts = parse_time(time_text) if time_text else None
-    return datetime_from_parts(int(year), month, int(day), time_parts)
+    time_parts = parse_time(time_text) if time_text else DEFAULT_BC_TIME
+    date_parts = (int(year), month, int(day))
+    return date_parts, {normalize_label("British Columbia"): time_parts}
 
 
-def parse_alertready_schedule(html):
-    """Finds the British Columbia row in the testing-schedule table."""
+def parse_alertready_schedule():
+    """Returns (date_parts, {normalized_label: (h, m)}) from the schedule
+    table; every row shares the same date, so the first one found is used.
+    """
+    html = fetch(ALERTREADY_SCHEDULE_URL)
     soup = BeautifulSoup(html, "html.parser")
+    date_parts = None
     for row in soup.find_all("tr"):
         cells = row.find_all("td")
-        if len(cells) < 3:
-            continue
-        label = cells[0].get_text(strip=True)
-        if "british columbia" not in label.lower():
-            continue
-        date_parts = find_date(cells[1].get_text(strip=True))
-        if not date_parts:
-            continue
-        time_parts = parse_time(cells[2].get_text(strip=True))
-        year, month, day = date_parts
-        return datetime_from_parts(year, month, day, time_parts)
-    return None
+        if len(cells) >= 3:
+            candidate = find_date(cells[1].get_text(strip=True))
+            if candidate:
+                date_parts = candidate
+                break
+    if not date_parts:
+        return None
+    times = extract_table_times(html)
+    return (date_parts, times) if times else None
 
 
-def future_candidates(candidates, now):
-    return [dt for dt in candidates if dt >= now]
-
-
-def find_next_test():
-    """Checks each source in priority order; returns the next future BC test
-    datetime, or None if no source currently lists one.
+def gather_candidates():
+    """Fetches each source once; returns [(source_name, date_parts, times)]
+    in priority order (RSS first, then gov.bc.ca, then the schedule page).
     """
-    now = datetime.now(VANCOUVER)
+    candidates = []
 
     try:
         rss_xml = fetch(RSS_URL)
-        future = future_candidates(list(parse_rss_feed(rss_xml)), now)
-        if future:
-            print("Found upcoming test via alertready.ca RSS feed.", file=sys.stderr)
-            return min(future)
+        for date_parts, times in parse_rss_feed(rss_xml):
+            candidates.append(("alertready.ca RSS feed", date_parts, times))
     except Exception as exc:
         print(f"WARN: RSS feed source failed: {exc}", file=sys.stderr)
 
     try:
-        govbc_html = fetch(GOVBC_URL)
-        dt = parse_govbc(govbc_html)
-        if dt and dt >= now:
-            print("Found upcoming test via gov.bc.ca.", file=sys.stderr)
-            return dt
+        result = parse_govbc()
+        if result:
+            candidates.append(("gov.bc.ca", *result))
     except Exception as exc:
         print(f"WARN: gov.bc.ca source failed: {exc}", file=sys.stderr)
 
     try:
-        schedule_html = fetch(ALERTREADY_SCHEDULE_URL)
-        dt = parse_alertready_schedule(schedule_html)
-        if dt and dt >= now:
-            print("Found upcoming test via alertready.ca schedule page.", file=sys.stderr)
-            return dt
+        result = parse_alertready_schedule()
+        if result:
+            candidates.append(("alertready.ca schedule page", *result))
     except Exception as exc:
         print(f"WARN: alertready.ca schedule source failed: {exc}", file=sys.stderr)
+
+    return candidates
+
+
+def find_next_test(province, candidates):
+    """Returns the next future UTC test datetime for a province, checking
+    each candidate in priority order, or None if none apply.
+    """
+    label = normalize_label(province["label"])
+    now = datetime.now(UTC)
+
+    for source_name, date_parts, times in candidates:
+        if label not in times:
+            continue
+        year, month, day = date_parts
+        dt_utc = to_utc(year, month, day, times[label], province["tz"])
+        if dt_utc >= now:
+            print(f"Found upcoming {province['label']} test via {source_name}.", file=sys.stderr)
+            return dt_utc
 
     return None
 
 
-def format_ics_dt(dt):
-    return dt.strftime("%Y%m%dT%H%M%S")
+def format_ics_dt(dt_utc):
+    return dt_utc.strftime("%Y%m%dT%H%M%SZ")
 
 
-VTIMEZONE_BLOCK = """BEGIN:VTIMEZONE
-TZID:America/Vancouver
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-TZNAME:PDT
-DTSTART:19700308T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-TZNAME:PST
-DTSTART:19701101T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-END:STANDARD
-END:VTIMEZONE"""
-
-
-def build_ics(test_dt):
-    dtstamp = datetime.now(ZoneInfo("UTC")).strftime("%Y%m%dT%H%M%SZ")
+def build_ics(test_dt_utc, uid):
+    dtstamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//alert-ready-blocker//bc-alert-test//EN",
+        "PRODID:-//alert-ready-blocker//alert-test//EN",
         "CALSCALE:GREGORIAN",
     ]
 
-    if test_dt is not None:
-        start = test_dt - timedelta(minutes=5)
-        end = test_dt + timedelta(minutes=10)
-        lines.append(VTIMEZONE_BLOCK)
+    if test_dt_utc is not None:
+        start = test_dt_utc - timedelta(minutes=5)
+        end = test_dt_utc + timedelta(minutes=10)
         lines += [
             "BEGIN:VEVENT",
-            f"UID:{UID}",
+            f"UID:{uid}",
             f"DTSTAMP:{dtstamp}",
-            f"DTSTART;TZID=America/Vancouver:{format_ics_dt(start)}",
-            f"DTEND;TZID=America/Vancouver:{format_ics_dt(end)}",
+            f"DTSTART:{format_ics_dt(start)}",
+            f"DTEND:{format_ics_dt(end)}",
             "SUMMARY:Alert Ready Test",
-            "DESCRIPTION:Scheduled B.C. Alert Ready test window.",
+            "DESCRIPTION:Scheduled Alert Ready test window.",
             "END:VEVENT",
         ]
 
@@ -250,29 +280,36 @@ def build_ics(test_dt):
     return "\r\n".join(lines) + "\r\n"
 
 
-def main():
-    test_dt = find_next_test()
+def write_ics(province, test_dt_utc):
+    ics_path = f"{province['abbr']}-alert-test.ics"
+    uid = f"{province['abbr']}-alert-ready-test@malchia7.github.io"
 
-    if test_dt is not None:
-        print(f"Next BC Alert Ready test: {test_dt.isoformat()}")
-        ics_content = build_ics(test_dt)
-        with open(ICS_PATH, "w", newline="") as f:
-            f.write(ics_content)
+    if test_dt_utc is not None:
+        print(f"Next {province['label']} Alert Ready test: {test_dt_utc.isoformat()}")
+        with open(ics_path, "w", newline="") as f:
+            f.write(build_ics(test_dt_utc, uid))
         return
 
-    print("No future BC test date found on any source.", file=sys.stderr)
+    print(f"No future {province['label']} test date found on any source.", file=sys.stderr)
     try:
-        with open(ICS_PATH, "r") as f:
+        with open(ics_path, "r") as f:
             existing = f.read()
         if "BEGIN:VCALENDAR" in existing:
-            print("Preserving existing bc-alert-test.ics.", file=sys.stderr)
+            print(f"Preserving existing {ics_path}.", file=sys.stderr)
             return
     except FileNotFoundError:
         pass
 
-    print("Writing empty VCALENDAR shell.", file=sys.stderr)
-    with open(ICS_PATH, "w", newline="") as f:
-        f.write(build_ics(None))
+    print(f"Writing empty VCALENDAR shell to {ics_path}.", file=sys.stderr)
+    with open(ics_path, "w", newline="") as f:
+        f.write(build_ics(None, uid))
+
+
+def main():
+    candidates = gather_candidates()
+    for province in PROVINCES:
+        test_dt_utc = find_next_test(province, candidates)
+        write_ics(province, test_dt_utc)
 
 
 if __name__ == "__main__":
